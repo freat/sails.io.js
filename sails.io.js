@@ -609,8 +609,16 @@
       if (typeof opts.query !== 'string') opts.query = SDK_INFO.versionString;
       else opts.query += '&' + SDK_INFO.versionString;
 
-      return io.sails._origConnectFn(url, opts);
+      // In the mean time, this eager socket will be defined as a TmpSocket
+      // so that events bound by the user before the first cycle of the event
+      // loop (using `.on()`) can be rebound on the true socket.
+      io.socket = new TmpSocket();
 
+      var actualSocket = io.sails._origConnectFn(url, opts);
+      // Replay event bindings from the existing TmpSocket
+      io.socket = io.socket.become(actualSocket);
+
+      return actualSocket;
     };
 
 
@@ -623,11 +631,6 @@
     // This can be disabled or configured by setting `io.socket.options` within the
     // first cycle of the event loop.
     // 
-
-    // In the mean time, this eager socket will be defined as a TmpSocket
-    // so that events bound by the user before the first cycle of the event
-    // loop (using `.on()`) can be rebound on the true socket.
-    io.socket = new TmpSocket();
 
     setTimeout(function() {
 
@@ -691,11 +694,7 @@
       function goAheadAndActuallyConnect() {
 
         // Initiate connection
-        var actualSocket = io.connect(io.sails.url);
-
-        // Replay event bindings from the existing TmpSocket
-        io.socket = io.socket.become(actualSocket);
-
+        io.connect(io.sails.url);
 
         /**
          * 'connect' event is triggered when the socket establishes a connection
