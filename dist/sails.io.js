@@ -25,7 +25,8 @@ var io="undefined"==typeof module?{}:module.exports;(function(){(function(a,b){v
  */
 
 
-(function() {
+var sails = {};
+sails.io = function() {
 
   // Save the URL that this script was fetched from for use below.
   // (skip this if this SDK is being used outside of the DOM, i.e. in a Node process)
@@ -612,16 +613,8 @@ var io="undefined"==typeof module?{}:module.exports;(function(){(function(a,b){v
       if (typeof opts.query !== 'string') opts.query = SDK_INFO.versionString;
       else opts.query += '&' + SDK_INFO.versionString;
 
-      // In the mean time, this eager socket will be defined as a TmpSocket
-      // so that events bound by the user before the first cycle of the event
-      // loop (using `.on()`) can be rebound on the true socket.
-      io.socket = new TmpSocket();
+      return io.sails._origConnectFn(url, opts);
 
-      var actualSocket = io.sails._origConnectFn(url, opts);
-      // Replay event bindings from the existing TmpSocket
-      io.socket = io.socket.become(actualSocket);
-
-      return actualSocket;
     };
 
 
@@ -634,6 +627,11 @@ var io="undefined"==typeof module?{}:module.exports;(function(){(function(a,b){v
     // This can be disabled or configured by setting `io.socket.options` within the
     // first cycle of the event loop.
     // 
+
+    // In the mean time, this eager socket will be defined as a TmpSocket
+    // so that events bound by the user before the first cycle of the event
+    // loop (using `.on()`) can be rebound on the true socket.
+    io.socket = new TmpSocket();
 
     setTimeout(function() {
 
@@ -697,7 +695,11 @@ var io="undefined"==typeof module?{}:module.exports;(function(){(function(a,b){v
       function goAheadAndActuallyConnect() {
 
         // Initiate connection
-        io.connect(io.sails.url);
+        var actualSocket = io.connect(io.sails.url);
+
+        // Replay event bindings from the existing TmpSocket
+        io.socket = io.socket.become(actualSocket);
+
 
         /**
          * 'connect' event is triggered when the socket establishes a connection
@@ -808,4 +810,4 @@ var io="undefined"==typeof module?{}:module.exports;(function(){(function(a,b){v
   // global namespace, you can replace the global `io` with your own `io` here:
   return SailsIOClient();
 
-})();
+};
